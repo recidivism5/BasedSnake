@@ -202,7 +202,8 @@ void SpawnApple(){
 	free(opencells);
 	board[hy*BOARD_WIDTH+hx].val = 0;
 }
-
+u8 kbmessages[16];
+i32 kbused = 0;
 i64 WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam){
 	switch (msg){
 		case WM_DESTROY:
@@ -211,6 +212,13 @@ i64 WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam){
 		case WM_CREATE:{
 			i32 t = 1;
 			DwmSetWindowAttribute(wnd,20,&t,sizeof(t));
+			break;
+		}
+		case WM_KEYDOWN:{
+			if ((wparam=='A' || wparam=='D' || wparam=='S' || wparam=='W') && kbused < COUNT(kbmessages) && (!kbused || kbmessages[kbused-1]!=wparam)){
+				kbmessages[kbused++] = wparam;
+				return 0;
+			}
 			break;
 		}
 	}
@@ -576,7 +584,6 @@ void WinMainCRTStartup(){
 	DWORD currentHeight = 0;
 
 	i32 framecount = 0;
-	i32 dirchanged = 0;
 	SpawnApple();
 
 	while(1){
@@ -680,14 +687,7 @@ void WinMainCRTStartup(){
 				context->lpVtbl->Unmap(context,ubuffer,0);
 				
 				GetKeyboardState(keys);
-				
 				//i got an idea. each WM_KEYDOWN message adds a message onto a queue, and you just read one valid message off that queue each game tick, skipping any invalid moves.s
-				if (!dirchanged){
-					if (keys['A'] & KEYMASK_DOWN && hdir!=RIGHT){hdir = LEFT; dirchanged = 1;}
-					else if (keys['D'] & KEYMASK_DOWN && hdir!=LEFT){hdir = RIGHT; dirchanged = 1;}
-					else if (keys['S'] & KEYMASK_DOWN && hdir!=UP){hdir = DOWN; dirchanged = 1;}
-					else if (keys['W'] & KEYMASK_DOWN && hdir!=DOWN){hdir = UP; dirchanged = 1;}
-				}
 				if (framecount < 0 && (keys[VK_SPACE] & KEYMASK_DOWN)){
 					hx = 0;
 					hy = 0;
@@ -697,12 +697,29 @@ void WinMainCRTStartup(){
 					memset(board,0,sizeof(board));
 					SpawnApple();
 					framecount = 0;
+					kbused = 0;
 				}
 
 				if (framecount >= 0){
 					framecount++;
 					if (framecount == 5){
 						framecount = 0;
+						if (kbused){
+							i32 i = 0;
+							for (; i < kbused; i++){
+								u8 m = kbmessages[i];
+								if (m=='A' && hdir!=LEFT && hdir!=RIGHT){hdir = LEFT; break;}
+								if (m=='D' && hdir!=LEFT && hdir!=RIGHT){hdir = RIGHT; break;}
+								if (m=='S' && hdir!=DOWN && hdir!=UP){hdir = DOWN; break;}
+								if (m=='W' && hdir!=DOWN && hdir!=UP){hdir = UP; break;}
+							}
+							if (i == kbused){
+								kbused = 0;
+							} else {
+								kbused -= i+1;
+								memmove(kbmessages,kbmessages+i+1,kbused);
+							}
+						}
 						i32 oldhx = hx, oldhy = hy;
 						switch(hdir){
 							case LEFT: hx--; break;
@@ -710,7 +727,6 @@ void WinMainCRTStartup(){
 							case DOWN: hy--; break;
 							case UP: hy++; break;
 						}
-						dirchanged = 0;
 						i32 v = board[hy*BOARD_WIDTH+hx].val;
 						if (hx < 0 || hx >= BOARD_WIDTH || hy < 0 || hy >= BOARD_WIDTH || v > 1){
 							framecount = -1;
