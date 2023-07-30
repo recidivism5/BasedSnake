@@ -576,6 +576,7 @@ void WinMainCRTStartup(){
 	DWORD currentHeight = 0;
 
 	i32 framecount = 0;
+	i32 dirchanged = 0;
 	SpawnApple();
 
 	while(1){
@@ -680,11 +681,14 @@ void WinMainCRTStartup(){
 				
 				GetKeyboardState(keys);
 				
-				if (keys['A'] & KEYMASK_DOWN && hdir!=RIGHT) hdir = LEFT;
-				else if (keys['D'] & KEYMASK_DOWN && hdir!=LEFT) hdir = RIGHT;
-				else if (keys['S'] & KEYMASK_DOWN && hdir!=UP) hdir = DOWN;
-				else if (keys['W'] & KEYMASK_DOWN && hdir!=DOWN) hdir = UP;
-				else if (framecount < 0 && (keys[VK_SPACE] & KEYMASK_DOWN)){
+				//i got an idea. each WM_KEYDOWN message adds a message onto a queue, and you just read one valid message off that queue each game tick, skipping any invalid moves.s
+				if (!dirchanged){
+					if (keys['A'] & KEYMASK_DOWN && hdir!=RIGHT){hdir = LEFT; dirchanged = 1;}
+					else if (keys['D'] & KEYMASK_DOWN && hdir!=LEFT){hdir = RIGHT; dirchanged = 1;}
+					else if (keys['S'] & KEYMASK_DOWN && hdir!=UP){hdir = DOWN; dirchanged = 1;}
+					else if (keys['W'] & KEYMASK_DOWN && hdir!=DOWN){hdir = UP; dirchanged = 1;}
+				}
+				if (framecount < 0 && (keys[VK_SPACE] & KEYMASK_DOWN)){
 					hx = 0;
 					hy = 0;
 					tx = 0;
@@ -706,6 +710,7 @@ void WinMainCRTStartup(){
 							case DOWN: hy--; break;
 							case UP: hy++; break;
 						}
+						dirchanged = 0;
 						i32 v = board[hy*BOARD_WIDTH+hx].val;
 						if (hx < 0 || hx >= BOARD_WIDTH || hy < 0 || hy >= BOARD_WIDTH || v > 1){
 							framecount = -1;
